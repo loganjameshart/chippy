@@ -6,7 +6,8 @@
 import array
 import random
 import time
-import pysdl2
+import sdl2.ext
+
 
 # RAM, 4KB (4096 bytes)
 ram = array.array('B')
@@ -32,9 +33,9 @@ stack_pointer = 0x00
 """===***instruction set functions***==="""
 
 
-def clear_screen():
+def clear_screen(texture_object):
     """0x00E0"""
-    pass
+    texture_object.clear()
 
 
 def return_subroutine():
@@ -361,11 +362,16 @@ def decode(opcode):
 
     elif opcode >> 4 == 0x00E:
         end_digit = opcode & 0x000F
-        clear_return_instructions[end_digit]
+        clear_return_instructions[end_digit] # these functions/instructions take no arguments
 
     else:
         start_digit = (opcode & 0xF000) >> 12
         unique_instructions[start_digit](opcode)
 
 
+def main():
+    # initialize window and renderer
+    sdl2.ext.init()
+    window = sdl2.ext.Window('CHIPPY', size = (640, 320))
+    main_renderer = sdl2.ext.renderer.Renderer(window)
     
