@@ -6,12 +6,13 @@
 import array
 import random
 import time
+import pysdl2
 
 # RAM, 4KB (4096 bytes)
 ram = array.array('B')
 
 # 16 registers, 8 bits each
-v_registers = array.array('B', [0 for i in range(0, 15)]) # need to be 1 - 16?
+v_registers = array.array('B', [0 for i in range(0, 16)])
 
 # i-register, 16 bits
 i_register = 0x0000
@@ -24,7 +25,7 @@ time_register = 0x00
 pc = 0x0000
 
 # stack, array of 16 16-bit values
-stack = array.array('H', [0 for i in range(0, 15)])
+stack = array.array('H', [0 for i in range(0, 16)])
 stack_pointer = 0x00
 
 
@@ -38,7 +39,10 @@ def clear_screen():
 
 def return_subroutine():
     """0x00EE"""
-    pass
+    global pc
+    global stack_pointer
+    pc = stack[-1]
+    stack_pointer -= 1
 
 
 def jump(opcode):
@@ -52,10 +56,9 @@ def call_subroutine(opcode):
     """0x2nnn - CALL addr"""
     global stack_pointer
     stack_pointer += 1
-    stack[16] = pc
+    stack[-1] = pc
     jump_address = opcode & 0x0FFF
     pc = jump_address
-
 
 
 def skip_next_instruction_bytecheck(opcode):
@@ -182,7 +185,7 @@ def skip_next_instruction_unequalregister(opcode):
     second_index_y = (opcode & 0x00F0) >> 4
 
     if v_registers[first_index_x] != v_registers[second_index_y]:
-        pc += 2
+        pc += 2 # increase by four?
 
 
 def set_i_register(opcode):
@@ -330,7 +333,12 @@ clear_return_instructions = {
     0xE: return_subroutine
 }
 
+
+"""===*** Emulation cycle functions ***==="""
+
+
 def fetch():
+    global ram
     opcode = ram[pc] << 8 | ram[pc+1]
     pc += 2 
     return opcode
