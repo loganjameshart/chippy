@@ -7,7 +7,9 @@ import array
 import random
 import time
 import sdl2.ext
+    
 
+"""===***CHIP-8 INTERNALS***==="""
 
 # RAM, 4KB (4096 bytes)
 ram = array.array('B')
@@ -29,14 +31,39 @@ pc = 0x0000
 stack = array.array('H', [0 for i in range(0, 16)])
 stack_pointer = 0x00
 
+# timer
+delay_timer = 0x00
+
+# display
+display_x = [0 for i in range(0, 64)]
+display_y = [0 for i in range(0, 32)]
+
+"""===***DISPLAY AND INPUT***==="""
+
+# remap standard keyboard to CHIP-8 Keyboard
+"""
+1   2   3   4       =   1   2 	3 	C
+Q   W   E   R       =   4 	5 	6 	D  
+A   S   D   F       =   7 	8 	9 	E
+Z   X   C   V       =   A 	0 	B 	F 
+
+"""
+
+
+KEYBOARD = {}
+
 
 """===***instruction set functions***==="""
 
 
-def clear_screen(texture_object):
+def clear_screen():
     """0x00E0"""
-    texture_object.clear()
-
+    global display_x
+    global display_y
+    for index, value in display_x:
+        display_x[index] = 0
+    for index, value in display_y:
+        display_x[index] = 0
 
 def return_subroutine():
     """0x00EE"""
@@ -211,22 +238,53 @@ def random_byte(opcode):
 
 def draw(opcode):
     """0xDxyn - DRW Vx, Vy, nibble"""
-    pass
+    global display_x
+    global display_y
+    global ram
+    index_x = (opcode & 0x0F00) >> 8
+    index_y = (opcode & 0x00F0) >> 4
+    height  = opcode & 0x000F
+    x_coordinate = (v_registers[index_x] % 64)
+    y_coordinate = (v_registers[index_y] % 32)
+    v_registers[0xF] = 0
+    row = 0
+    column = 0
+    while row < height:
+        sprite_byte = ram[i_register + row]
+        row += 1
+        while column < 8:
+            sprite_pixel = sprite_byte & (0x80 >> column)
+            print((y_coordinate * 64 + (x_coordinate + column)))
+            screen_pixel = display_y[(y_coordinate * 64 + (x_coordinate + column))]
+            if sprite_pixel:
+                if screen_pixel == 0xFFFFFFFF:
+                    v_registers[0xF] = 1
+
+                screen_pixel ^ 0xFFFFFFFF
+            column += 1
 
 
-def skip_keypressed(opcode):
+def skip_keypressed(opcode, pressed_key):
     """0xEx9E - SKP Vx"""
-    pass
+    global pc
+    index_x = (opcode & 0x0F00) >> 8
+    if v_registers[index_x] == pressed_key:
+        pc += 2
 
 
-def skip_keynotpressed(opcode):
+def skip_keynotpressed(opcode, pressed_key):
     """0xExA1 - SKNP Vx"""
-    pass
+    global pc
+    index_x = (opcode & 0x0F00) >> 8
+    if v_registers[index_x] != pressed_key:
+        pc += 2
 
 
 def set_register_delaytimervalue(opcode):
     """0xFx07 - LD Vx, DT"""
-    pass
+    global delay_timer
+    index_x = (opcode & 0x0F00) >> 8
+    v_registers[index_x] = delay_timer
 
 
 def wait_keypress(opcode):
@@ -236,20 +294,23 @@ def wait_keypress(opcode):
 
 def set_delaytimer_registervalue(opcode):
     """0xFx15 - LD DT, Vx"""
-    pass
+    global delay_timer
+    index_x = (opcode & 0x0F00) >> 8
+    delay_timer = v_registers[index_x]
 
 
 def set_soundtimer_registervalue(opcode):
     """0xFx18 - LD ST, Vx"""
-    pass
+    global sound_register
+    index_x = (opcode & 0x0F00) >> 8
+    sound_register = v_registers[index_x]
 
 
 def add_register_to_i(opcode):
     """0xFx1E - ADD I, Vx"""
     index_x = (opcode & 0x0F00) >> 8
     i_register = i_register + v_registers[index_x]
-    pass
-
+    
 
 def set_i_sprite(opcode):
     """0xFx29 - LD F, Vx"""
@@ -340,6 +401,7 @@ clear_return_instructions = {
 
 def fetch():
     global ram
+    global pc
     opcode = ram[pc] << 8 | ram[pc+1]
     pc += 2 
     return opcode
@@ -374,4 +436,15 @@ def main():
     sdl2.ext.init()
     window = sdl2.ext.Window('CHIPPY', size = (640, 320))
     main_renderer = sdl2.ext.renderer.Renderer(window)
+    rom = open(r'C:\Users\lhw3172\Desktop\chip8\ibm.ch8', 'rb')
+    ram.frombytes(rom.read())
+    while True:
+        opcode = fetch()
+        print(hex(opcode))
+        decode(opcode)
+        window.refresh()
+
+
+if __name__ == "__main__":
+    main()
     
