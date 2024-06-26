@@ -7,12 +7,12 @@ import array
 import random
 import time
 import sdl2.ext
-    
+
 
 """===***CHIP-8 INTERNALS***==="""
 
 # RAM, 4KB (4096 bytes)
-ram = array.array('B')
+ram = array.array('B', [0 for i in range(0, 4096)])
 
 # 16 registers, 8 bits each
 v_registers = array.array('B', [0 for i in range(0, 16)])
@@ -35,8 +35,8 @@ stack_pointer = 0x00
 delay_timer = 0x00
 
 # display
-display_x = [0 for i in range(0, 64)]
-display_y = [0 for i in range(0, 32)]
+display_x = [0 for i in range(0, 640)]
+display_y = [0 for i in range(0, 320)]
 
 """===***DISPLAY AND INPUT***==="""
 
@@ -255,7 +255,7 @@ def draw(opcode):
         while column < 8:
             sprite_pixel = sprite_byte & (0x80 >> column)
             print((y_coordinate * 64 + (x_coordinate + column)))
-            screen_pixel = display_y[(y_coordinate * 64 + (x_coordinate + column))]
+            screen_pixel = display_y[(y_coordinate + (x_coordinate + column))]
             if sprite_pixel:
                 if screen_pixel == 0xFFFFFFFF:
                     v_registers[0xF] = 1
@@ -434,15 +434,19 @@ def decode(opcode):
 def main():
     # initialize window and renderer
     sdl2.ext.init()
-    window = sdl2.ext.Window('CHIPPY', size = (640, 320))
-    main_renderer = sdl2.ext.renderer.Renderer(window)
+    chip8 = sdl2.ext.window.Window('CHIP-8', (640, 320))
+    chip8.show()
+    renderer = sdl2.ext.renderer.Renderer(chip8)
+    renderer.clear()
+    renderer.draw_point(display_x)
+    renderer.draw_point(display_y)
     rom = open(r'C:\Users\lhw3172\Desktop\chip8\ibm.ch8', 'rb')
     ram.frombytes(rom.read())
     while True:
         opcode = fetch()
         print(hex(opcode))
         decode(opcode)
-        window.refresh()
+        chip8.refresh()
 
 
 if __name__ == "__main__":
