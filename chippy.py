@@ -6,7 +6,7 @@
 import array
 import random
 import time
-import sdl2.ext
+import pygame
 
 
 """===***CHIP-8 INTERNALS***==="""
@@ -15,7 +15,7 @@ import sdl2.ext
 ram = array.array('B', [0 for i in range(0, 4096)])
 
 # 16 registers, 8 bits each
-v_registers = array.array('B', [0 for i in range(0, 16)])
+v_registers = array.array('H', [0 for i in range(0, 16)]) # H or B?
 
 # i-register, 16 bits
 i_register = 0x0000
@@ -25,7 +25,7 @@ sound_register = 0x00
 time_register = 0x00
 
 # program counter, will be used as ram array index
-pc = 0x0000
+pc = 512
 
 # stack, array of 16 16-bit values
 stack = array.array('H', [0 for i in range(0, 16)])
@@ -34,7 +34,39 @@ stack_pointer = 0x00
 # timer
 delay_timer = 0x00
 
-# display
+# display using pygame
+
+"""PSEUDO CODE
+DXYN
+make window
+put surface onto window, surface is display_x length and display_y height
+draw command:
+    - set v_registers[0xF] to 0 
+    - height is N (so 0xDXYN & 0x000F)
+    - width is always 8
+    - get starting location of pixel drawing from registers, x_coord = v_register[x] and y_coord = v_register[y]
+        - this correlates to a display_x and display_y location in the "display memory"
+
+    - pixel = (display_x[x_coord], display_y[y_coord])
+    - for row in range(0, height):
+        sprite_data = ram[i_register + row] # sprite_data is the 8 bits in the row you turn on or off, so a pixel
+        for i in range(0, 8):
+            possible_pixel = sprite_data & (1 << 7 - i)
+            if possible_pixel = 
+
+            
+            
+        
+
+    - execute on/off (becomes a 1 or a 0)
+    
+
+
+
+"""
+
+
+
 display_x = [0 for i in range(0, 640)]
 display_y = [0 for i in range(0, 320)]
 
@@ -60,10 +92,11 @@ def clear_screen():
     """0x00E0"""
     global display_x
     global display_y
-    for index, value in display_x:
+    for index, value in enumerate(display_x):
         display_x[index] = 0
-    for index, value in display_y:
+    for index, value in enumerate(display_y):
         display_x[index] = 0
+
 
 def return_subroutine():
     """0x00EE"""
@@ -83,6 +116,7 @@ def jump(opcode):
 def call_subroutine(opcode):
     """0x2nnn - CALL addr"""
     global stack_pointer
+    global pc
     stack_pointer += 1
     stack[-1] = pc
     jump_address = opcode & 0x0FFF
@@ -236,10 +270,13 @@ def random_byte(opcode):
     v_registers[index_x] = random.randint(0, 255) & kk # maybe replace random.randint() for better randomness
 
 
+###  TODO 
 def draw(opcode):
     """0xDxyn - DRW Vx, Vy, nibble"""
     global display_x
     global display_y
+    global renderer
+    global chip8
     global ram
     index_x = (opcode & 0x0F00) >> 8
     index_y = (opcode & 0x00F0) >> 4
@@ -247,21 +284,8 @@ def draw(opcode):
     x_coordinate = (v_registers[index_x] % 64)
     y_coordinate = (v_registers[index_y] % 32)
     v_registers[0xF] = 0
-    row = 0
-    column = 0
-    while row < height:
-        sprite_byte = ram[i_register + row]
-        row += 1
-        while column < 8:
-            sprite_pixel = sprite_byte & (0x80 >> column)
-            print((y_coordinate * 64 + (x_coordinate + column)))
-            screen_pixel = display_y[(y_coordinate + (x_coordinate + column))]
-            if sprite_pixel:
-                if screen_pixel == 0xFFFFFFFF:
-                    v_registers[0xF] = 1
 
-                screen_pixel ^ 0xFFFFFFFF
-            column += 1
+
 
 
 def skip_keypressed(opcode, pressed_key):
@@ -402,8 +426,8 @@ clear_return_instructions = {
 def fetch():
     global ram
     global pc
-    opcode = ram[pc] << 8 | ram[pc+1]
-    pc += 2 
+    opcode = (ram[pc] << 8) | (ram[pc+1])
+    pc += 2
     return opcode
 
 def decode(opcode):
@@ -433,20 +457,22 @@ def decode(opcode):
 
 def main():
     # initialize window and renderer
-    sdl2.ext.init()
-    chip8 = sdl2.ext.window.Window('CHIP-8', (640, 320))
-    chip8.show()
-    renderer = sdl2.ext.renderer.Renderer(chip8)
-    renderer.clear()
-    renderer.draw_point(display_x)
-    renderer.draw_point(display_y)
-    rom = open(r'C:\Users\lhw3172\Desktop\chip8\ibm.ch8', 'rb')
-    ram.frombytes(rom.read())
+    rom = open(r'/home/logan/Programming/chip8/test.ch8', 'rb')
+
+    # big hack ahead
+    temp_array = array.array('B')
+    temp_array.frombytes(rom.read())
+    ram_var = 512
+    for i in temp_array:
+        ram.insert(ram_var, i)
+        ram_var +=1
+    del ram[4096:]
     while True:
         opcode = fetch()
-        print(hex(opcode))
+        print(f"OPCODE: {hex(opcode)}")
         decode(opcode)
-        chip8.refresh()
+        time.sleep(.2)
+
 
 
 if __name__ == "__main__":
