@@ -488,7 +488,7 @@ def main():
     global display
     global screen
     # initialize window and renderer
-    rom = open(r"C:\Users\lhw3172\Desktop\chip8\ibm.ch8", 'rb')
+    rom = open(r"", 'rb')
 
     # big hack ahead
     buffer_array = array.array('B')
