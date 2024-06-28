@@ -18,7 +18,7 @@ ram = array.array('B', [0 for i in range(0, 4096)])
 v_registers = array.array('H', [0 for i in range(0, 16)]) # H or B?
 
 # i-register, 16 bits
-i_register = 0
+i_register = 0x0000
 
 # sound and time registers
 sound_register = 0x00
@@ -33,6 +33,34 @@ stack_pointer = 0x00
 
 # timer
 delay_timer = 0x00
+
+# font
+
+FONTSET_SIZE = 80
+
+FONT = [
+	0xF0, 0x90, 0x90, 0x90, 0xF0,
+	0x20, 0x60, 0x20, 0x20, 0x70, 
+	0xF0, 0x10, 0xF0, 0x80, 0xF0, 
+	0xF0, 0x10, 0xF0, 0x10, 0xF0, 
+	0x90, 0x90, 0xF0, 0x10, 0x10,
+	0xF0, 0x80, 0xF0, 0x10, 0xF0, 
+	0xF0, 0x80, 0xF0, 0x90, 0xF0, 
+	0xF0, 0x10, 0x20, 0x40, 0x40, 
+	0xF0, 0x90, 0xF0, 0x90, 0xF0, 
+	0xF0, 0x90, 0xF0, 0x10, 0xF0, 
+	0xF0, 0x90, 0xF0, 0x90, 0x90,
+	0xE0, 0x90, 0xE0, 0x90, 0xE0, 
+	0xF0, 0x80, 0x80, 0x80, 0xF0, 
+	0xE0, 0x90, 0x90, 0x90, 0xE0, 
+	0xF0, 0x80, 0xF0, 0x80, 0xF0, 
+	0xF0, 0x80, 0xF0, 0x80, 0x80  
+]
+
+FONTADDRESS = 0x50
+
+for i in range(FONTSET_SIZE):
+    ram[FONTADDRESS + i] = FONT[i]
 
 # display using pygame
 pygame.init()
@@ -53,6 +81,8 @@ pygame.display.flip()
 display = [[0 for i in range(SCREEN_HEIGHT)] for i in range(SCREEN_WIDTH)]
 
 """===***DISPLAY AND INPUT***==="""
+
+events = pygame.event.get()
 
 # remap standard keyboard to CHIP-8 Keyboard
 """
@@ -214,7 +244,13 @@ def subtract_register_vxvy(opcode):
 
 def shift_right(opcode):
     """0x8xy6 - SHR Vx {, Vy}"""
-    pass
+    global v_registers
+    index_x = (opcode & 0x0F00) >> 8
+    if (v_registers[index_x] & 0x000F) == 1:
+        v_registers[0xF] = 1
+    else:
+        v_registers[0xF] = 0
+        v_registers[index_x] = (v_registers[index_x] / 2)
 
 
 def subtract_register_vyvx(opcode):
@@ -233,7 +269,13 @@ def subtract_register_vyvx(opcode):
 
 def shift_left(opcode):
     """0x8xyE - SHL Vx {, Vy}:"""
-    pass
+    global v_registers
+    index_x = (opcode & 0xF000) >> 12
+    if (v_registers[index_x] & 0x000F) == 1:
+        v_registers[0xF] = 1
+    else:
+        v_registers[0xF] = 0
+        v_registers[index_x] = (v_registers[index_x] * 2)
 
 
 def skip_next_instruction_unequalregister(opcode):
@@ -333,10 +375,16 @@ def set_register_delaytimervalue(opcode):
     index_x = (opcode & 0x0F00) >> 8
     v_registers[index_x] = delay_timer
 
-
+# TODO
 def wait_keypress(opcode):
     """0xFx0A - LD Vx, K"""
-    pass
+    global v_registers
+    index_x = (opcode & 0x0F00) >> 8
+    while True:
+        event = pygame.event.wait()
+        if event:
+            v_registers[index_x] = event.type
+
 
 
 def set_delaytimer_registervalue(opcode):
@@ -364,13 +412,32 @@ def add_register_to_i(opcode):
 
 def set_i_sprite(opcode):
     """0xFx29 - LD F, Vx"""
-    pass
+    global display
+    global v_registers
+    global i_register
+
+    index_x = (opcode & 0x0F00) >> 8
+    digit = v_registers[index_x]
+    i_register = FONTADDRESS + (5 * digit)
+
+
 
 
 def set_register_bcd(opcode):
     """0xFx33 - LD B, Vx"""
-    pass
+    global v_registers
+    global ram
+    global i_register
+    index_x = (opcode & 0x0F00) >> 8
+    value = v_registers[index_x]
 
+    ram[i_register + 2] = value % 10
+    value /= 10
+
+    ram[i_register + 1] = value % 10
+    value /= 10
+
+    ram[i_register] = value % 10
 
 def store_registers_memory(opcode):
     """0xFx55 - LD [I], Vx"""
@@ -488,7 +555,7 @@ def main():
     global display
     global screen
     # initialize window and renderer
-    rom = open(r"", 'rb')
+    rom = open(r"C:\Users\lhw3172\Desktop\chip8\test.ch8", 'rb')
 
     # big hack ahead
     buffer_array = array.array('B')
