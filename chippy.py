@@ -18,7 +18,7 @@ ram = array.array('B', [0 for i in range(0, 4096)])
 v_registers = array.array('H', [0 for i in range(0, 16)]) # H or B?
 
 # i-register, 16 bits
-i_register = 0x0000
+i_register = 0
 
 # sound and time registers
 sound_register = 0x00
@@ -35,40 +35,22 @@ stack_pointer = 0x00
 delay_timer = 0x00
 
 # display using pygame
+pygame.init()
 
-"""PSEUDO CODE
-DXYN
-make window
-put surface onto window, surface is display_x length and display_y height
-draw command:
-    - set v_registers[0xF] to 0 
-    - height is N (so 0xDXYN & 0x000F)
-    - width is always 8
-    - get starting location of pixel drawing from registers, x_coord = v_register[x] and y_coord = v_register[y]
-        - this correlates to a display_x and display_y location in the "display memory"
+SCREEN_WIDTH = 640
+SCREEN_HEIGHT = 320
+PIXEL_SIZE = 10  # Size of each CHIP-8 pixel in pixels
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
 
-    - pixel = (display_x[x_coord], display_y[y_coord])
-    - for row in range(0, height):
-        sprite_data = ram[i_register + row] # sprite_data is the 8 bits in the row you turn on or off, so a pixel
-        for i in range(0, 8):
-            possible_pixel = sprite_data & (1 << 7 - i)
-            if possible_pixel = 
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('CHIP-8')
 
-            
-            
-        
+# Clear the screen initially
+screen.fill(BLACK)
+pygame.display.flip()
 
-    - execute on/off (becomes a 1 or a 0)
-    
-
-
-
-"""
-
-
-
-display_x = [0 for i in range(0, 640)]
-display_y = [0 for i in range(0, 320)]
+display = [[0 for i in range(SCREEN_HEIGHT)] for i in range(SCREEN_WIDTH)]
 
 """===***DISPLAY AND INPUT***==="""
 
@@ -90,12 +72,12 @@ KEYBOARD = {}
 
 def clear_screen():
     """0x00E0"""
-    global display_x
-    global display_y
-    for index, value in enumerate(display_x):
-        display_x[index] = 0
-    for index, value in enumerate(display_y):
-        display_x[index] = 0
+    global display
+    global screen
+    for row in display:
+        for column in row:
+            display[row][column] = 0
+    pygame.display.flip()
 
 
 def return_subroutine():
@@ -111,6 +93,7 @@ def jump(opcode):
     """0x1nnn - JP addr"""
     jump_address = opcode & 0x0FFF
     pc = jump_address
+    print('JUMP')
 
 
 def call_subroutine(opcode):
@@ -126,6 +109,7 @@ def call_subroutine(opcode):
 def skip_next_instruction_bytecheck(opcode):
     """0x3xkk - SE Vx, byte"""
     global pc
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     kk = opcode & 0x00FF
     if v_registers[index_x] == kk:
@@ -135,6 +119,7 @@ def skip_next_instruction_bytecheck(opcode):
 def skip_next_instruction_unequalbytecheck(opcode):
     """0x4xkk - SNE Vx, byte"""
     global pc
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     kk = opcode & 0x00FF
     if v_registers[index_x] != kk:
@@ -144,6 +129,7 @@ def skip_next_instruction_unequalbytecheck(opcode):
 def skip_next_instruction_equalregister(opcode):
     """0x5xy0 - SE Vx, Vy"""
     global pc
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     if v_registers[first_index_x] == v_registers[second_index_y]:
@@ -152,20 +138,25 @@ def skip_next_instruction_equalregister(opcode):
 
 def store_byte(opcode):
     """0x6xkk - LD Vx, byte"""
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     kk = opcode & 0x00FF
     v_registers[index_x] = kk
+    print('STORE VX')
 
 
 def add_byte(opcode):
     """0x7xkk - ADD Vx, byte"""
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     kk = opcode & 0x00FF
     v_registers[index_x] = v_registers[index_x] + kk
+    print('ADD VALUE')
 
 
 def store_register(opcode):
     """0x8xy0 - LD Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     v_registers[first_index_x] = v_registers[second_index_y]
@@ -173,14 +164,15 @@ def store_register(opcode):
 
 def bitwise_or(opcode):
     """0x8xy1 - OR Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     v_registers[first_index_x] = v_registers[first_index_x] | v_registers[second_index_y] 
     
 
-
 def bitwise_and(opcode):
     """0x8xy2 - AND Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     v_registers[first_index_x] = v_registers[first_index_x] & v_registers[second_index_y] 
@@ -188,6 +180,7 @@ def bitwise_and(opcode):
 
 def bitwise_xor(opcode):
     """0x8xy3 - XOR Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     v_registers[first_index_x] ^ v_registers[first_index_x] & v_registers[second_index_y]
@@ -195,6 +188,7 @@ def bitwise_xor(opcode):
 
 def add_register(opcode):
     """0x8xy4 - ADD Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
     v_registers[first_index_x] = v_registers[first_index_x] + v_registers[second_index_y]
@@ -206,6 +200,7 @@ def add_register(opcode):
 
 def subtract_register_vxvy(opcode):
     """0x8xy5 - SUB Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
 
@@ -224,6 +219,7 @@ def shift_right(opcode):
 
 def subtract_register_vyvx(opcode):
     """0x8xy7 - SUBN Vx, Vy"""
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
 
@@ -243,54 +239,79 @@ def shift_left(opcode):
 def skip_next_instruction_unequalregister(opcode):
     """0x9xy0 - SNE Vx, Vy"""
     global pc
+    global v_registers
     first_index_x = (opcode & 0x0F00) >> 8
     second_index_y = (opcode & 0x00F0) >> 4
 
     if v_registers[first_index_x] != v_registers[second_index_y]:
-        pc += 2 # increase by four?
+        pc += 2
 
 
 def set_i_register(opcode):
     """0xAnnn - LD I, addr"""
+    global i_register
     nnn = (opcode & 0x0FFF)
     i_register = nnn
+    print(f'SET I REGISTER: {i_register}')
 
 
 def jump_v0_plus_value(opcode):
     """0xBnnn - JP V0, addr"""
     global pc
+    global v_registers
     nnn = (opcode & 0x0FFF)
     pc = nnn + v_registers[0x0]
 
 
 def random_byte(opcode):
     """0xCxkk - RND Vx, byte"""
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     kk = opcode & 0x00FF
     v_registers[index_x] = random.randint(0, 255) & kk # maybe replace random.randint() for better randomness
 
 
-###  TODO 
 def draw(opcode):
-    """0xDxyn - DRW Vx, Vy, nibble"""
-    global display_x
-    global display_y
-    global renderer
-    global chip8
+    global display
     global ram
+    global screen
+    global v_registers
+    global i_register
+
     index_x = (opcode & 0x0F00) >> 8
     index_y = (opcode & 0x00F0) >> 4
-    height  = opcode & 0x000F
-    x_coordinate = (v_registers[index_x] % 64)
-    y_coordinate = (v_registers[index_y] % 32)
-    v_registers[0xF] = 0
+    height = opcode & 0x000F  # Number of rows to draw
+    x_coordinate = v_registers[index_x] % 64
+    y_coordinate = v_registers[index_y] % 32
+    v_registers[0xF] = 0  # Reset collision flag
 
+    for row in range(height):
+        sprite_data = ram[i_register + row]
+        for sprite_bit in range(8):  # Every sprite is 8 pixels/bits wide
+            sprite_x = (x_coordinate + sprite_bit) % SCREEN_WIDTH
+            sprite_y = (y_coordinate + row) % SCREEN_HEIGHT
+            sprite_pixel = (sprite_data & (0x80 >> sprite_bit)) != 0  # Check if pixel is on or off
 
+            # XOR operation for drawing and collision detection
+            if sprite_pixel:
+                if display[sprite_x][sprite_y] == 1:
+                    v_registers[0xF] = 1  # Set collision flag
+                display[sprite_x][sprite_y] ^= 1
+
+                # Draw the pixel on the screen surface
+                if display[sprite_x][sprite_y] == 1:
+                    pygame.draw.rect(screen, WHITE, (sprite_x * PIXEL_SIZE, sprite_y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE))
+                else:
+                    pygame.draw.rect(screen, BLACK, (sprite_x * PIXEL_SIZE, sprite_y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE))
+
+    # Update the display surface
+    pygame.display.flip()
 
 
 def skip_keypressed(opcode, pressed_key):
     """0xEx9E - SKP Vx"""
     global pc
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     if v_registers[index_x] == pressed_key:
         pc += 2
@@ -299,6 +320,7 @@ def skip_keypressed(opcode, pressed_key):
 def skip_keynotpressed(opcode, pressed_key):
     """0xExA1 - SKNP Vx"""
     global pc
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     if v_registers[index_x] != pressed_key:
         pc += 2
@@ -307,6 +329,7 @@ def skip_keynotpressed(opcode, pressed_key):
 def set_register_delaytimervalue(opcode):
     """0xFx07 - LD Vx, DT"""
     global delay_timer
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     v_registers[index_x] = delay_timer
 
@@ -319,6 +342,7 @@ def wait_keypress(opcode):
 def set_delaytimer_registervalue(opcode):
     """0xFx15 - LD DT, Vx"""
     global delay_timer
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     delay_timer = v_registers[index_x]
 
@@ -326,12 +350,14 @@ def set_delaytimer_registervalue(opcode):
 def set_soundtimer_registervalue(opcode):
     """0xFx18 - LD ST, Vx"""
     global sound_register
+    global v_registers
     index_x = (opcode & 0x0F00) >> 8
     sound_register = v_registers[index_x]
 
 
 def add_register_to_i(opcode):
     """0xFx1E - ADD I, Vx"""
+    global i_register
     index_x = (opcode & 0x0F00) >> 8
     i_register = i_register + v_registers[index_x]
     
@@ -349,6 +375,7 @@ def set_register_bcd(opcode):
 def store_registers_memory(opcode):
     """0xFx55 - LD [I], Vx"""
     global ram
+    global i_register
     index_x = (opcode & 0x0F00) >> 8
     for i in range(0, index_x):
         ram[i_register + i] = v_registers[i]
@@ -428,7 +455,9 @@ def fetch():
     global pc
     opcode = (ram[pc] << 8) | (ram[pc+1])
     pc += 2
+    print(f"PROGRAM COUNTER: {pc}")
     return opcode
+
 
 def decode(opcode):
     # bitshift right to get instruction code
@@ -456,23 +485,25 @@ def decode(opcode):
 
 
 def main():
+    global display
+    global screen
     # initialize window and renderer
-    rom = open(r'/home/logan/Programming/chip8/test.ch8', 'rb')
+    rom = open(r"C:\Users\lhw3172\Desktop\chip8\ibm.ch8", 'rb')
 
     # big hack ahead
-    temp_array = array.array('B')
-    temp_array.frombytes(rom.read())
+    buffer_array = array.array('B')
+    buffer_array.frombytes(rom.read())
     ram_var = 512
-    for i in temp_array:
+    for i in buffer_array:
         ram.insert(ram_var, i)
         ram_var +=1
-    del ram[4096:]
+
+
+    # main loop
     while True:
         opcode = fetch()
-        print(f"OPCODE: {hex(opcode)}")
         decode(opcode)
-        time.sleep(.2)
-
+        time.sleep(.1)
 
 
 if __name__ == "__main__":
